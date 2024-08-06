@@ -648,8 +648,6 @@ The image can now be used by Ventoy.
 
 #### Dual-Boot
 
-winesapOS now has the ability to do this automatically but its not reccomended follow these steps instead :
-
 It is recommended to follow the [setup](#setup) guide to install winesapOS onto its own internal drive. Then use the motherboard BIOS to change the boot device.
 
 However, it is possible to install winesapOS onto the same drive as macOS or Windows. That is what this guide will cover in more detail.
@@ -686,13 +684,41 @@ Only Intel Macs are supported.
 
 ##### winesapOS Dual-Boot Install Guide
 
+**Semi-automated steps:**
+
+1. Follow the winesapOS [setup](#setup) guide to get the minimal image onto an external drive.
+2. Boot into winesapOS that is on the external drive.
+3. Use GParted to partition the free storage space. The labels are suffixed with the number zero "0" (not the letter "O").
+    - For macOS:
+        - (Right-click on the "exfat" partition) > Delete
+        - (Right-click on the "unallocated" space) > New > New size (MiB): 1000, File system: fat32, Label: WOS-EFI0 > Add
+    - Then for macOS and Windows:
+        - (Right-click on the "unallocated" space) > New > New size (MiB): 1000, File system: ext4, Label: winesapos-boot0 > Add
+        - (Right-click on the "unallocated" space) > New > File system: btrfs, Label: winesapos-root0 > Add
+    - (Select the green check mark to "Apply All Operations") > Apply > Close
+4. Run the "winesapOS Dual-Boot Installer (Beta)" desktop shortcut.
+5. Turn off the computer, unplug the winesapOS external drive, and then turn on the computer.
+6. Allow booting the original operating system again.
+
+    - macOS
+        - Hold `command` while booting up. Once booted into macOS, run `./refind-mkdefault` (requires Xcode to be installed).
+    - Windows
+        - Add Windows to the GRUB boot menu.
+            ```
+            # Enable os-prober. It is disabled by default.
+            sudo crudini --ini-options=nospace --set /etc/default/grub "" GRUB_DISABLE_OS_PROBER false
+            sudo grub-mkconfig -o /boot/grub/grub.cfg
+            ```
+
+**Manual steps:**
+
 1. Follow the winesapOS [setup](#setup) guide to get the performance image onto an external drive.
     - This includes installer tools needed to install winesapOS onto an internal drive.
     - It also includes an exFAT partition that is accessible from any operating system.
 2. Download the latest `winesapos-${WINESAPOS_VERSION}-minimal-rootfs.tar.zst` [release](https://github.com/LukeShortCloud/winesapOS/releases).
     - Copy it to the `wos-drive`.
 3. Boot into winesapOS that is on the external drive.
-4. Use GParted to partition the free storage space.
+4. Use GParted to partition the free storage space. The labels are suffixed with the number zero "0" (not the letter "O").
     - For macOS:
         - (Right-click on the "exfat" partition) > Delete
         - (Right-click on the "unallocated" space) > New > New size (MiB): 1000, File system: fat32, Label: WOS-EFI0 > Add

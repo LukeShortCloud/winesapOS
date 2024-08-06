@@ -1,9 +1,9 @@
 [Desktop Entry]
-Exec=/bin/bash /home/winesap/.winesapos/Winesap-dual-boot.sh
-Name=winesapOS Dual-boot Beta Setup
-Comment=winesapOS setup but for dual-booting
+Exec=/usr/local/bin/winesapos-dual-boot.sh
+Name=winesapOS Dual-Boot Installer (Beta)
+Comment=winesapOS dual-boot installer
 Encoding=UTF-8
 Icon=/home/winesap/.winesapos/winesapos_logo_icon.png
-Terminal=false
+Terminal=true
 Type=Application
 Categories=Application
