@@ -1038,6 +1038,14 @@ if [ $? -ne 0 ]; then
     ${CMD_YAY_INSTALL[*]} linux-fsync-nobara-bin
 fi
 
+${CMD_PACMAN} -Q steamdeck-dsp
+if [ $? -eq 0 ]; then
+    ${CMD_PACMAN} -Q linux-firmware-valve
+    if [ $? -ne 0 ]; then
+        ${CMD_PACMAN_INSTALL[*]} linux-firmware-valve
+    fi
+fi
+
 echo "Running 4.0.0 to 4.1.0 upgrades complete."
 
 echo "Upgrading system packages..."

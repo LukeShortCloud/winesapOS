@@ -536,13 +536,6 @@ else
     winesapos_test_failure
 fi
 
-echo -n -e "\tChecking that Steam Deck OLED audio driver support is installed..."
-pacman_search steamdeck-dsp
-if [ $? -eq 0 ]; then
-    echo PASS
-else
-    winesapos_test_failure
-fi
 echo -e "Testing drivers installation complete.\n\n"
 
 echo "Testing that all files have been copied over..."

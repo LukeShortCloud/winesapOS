@@ -12,6 +12,7 @@
 - Change primary Linux kernel from Linux T2 to Linux Nobara.
 - Remove PackageKit in favor of bauh.
 - Add a symlink for forwards compatibility from /etc/winesapos/ to /var/winesapos/.
+- Add support for sound on the Steam Deck OLED.
 
 ## 3.4.0 to 4.0.0
 

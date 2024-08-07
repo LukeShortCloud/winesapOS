@@ -763,9 +763,6 @@ ACTION==\"add\", ATTRS{idVendor}==\"17ef\", ATTRS{idProduct}==\"6182\", RUN+=\"/
 # AYANEO LED controls.
 yay_install_chroot ayaneo-platform-dkms-git ayaled-updated
 
-# Steam Deck OLED audio support.
-chroot ${WINESAPOS_INSTALL_DIR} pacman -U --noconfirm  --config <(echo -e "[options]\nArchitecture = auto\nSigLevel = Never\n") https://steamdeck-packages.steamos.cloud/archlinux-mirror/jupiter-main/os/x86_64/steamdeck-dsp-0.49-1-any.pkg.tar.zst
-
 if [[ "${WINESAPOS_DE}" == "cinnamon" ]]; then
     echo "Installing the Cinnamon desktop environment..."
         pacman_install_chroot cinnamon
