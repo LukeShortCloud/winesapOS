@@ -74,6 +74,7 @@
 - Add support for sound on the Steam Deck OLED.
 - Add support for ASUS ROG Ally handhelds (including the Ally X).
 - Add 'vi' text editor.
+- Add BIND for network troubleshooting purposes.
 
 ## 4.0.0 - The Conversion Update
 
