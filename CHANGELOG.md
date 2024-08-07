@@ -72,6 +72,7 @@
 - Add a '/usr/lib/os-release-winesapos' file.
 - Add ability to hide the GRUB boot menu.
 - Add support for sound on the Steam Deck OLED.
+- Add support for ASUS ROG Ally handhelds (including the Ally X).
 
 ## 4.0.0 - The Conversion Update
 

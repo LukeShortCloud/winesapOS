@@ -13,7 +13,7 @@ winesapOS makes it easy to setup Linux and play games off an internal or portabl
 Why use winesapOS?
 
 - Portable. Useful for gaming or recovery purposes while traveling.
-- Enhanced hardware support for Apple Macs with Intel processors, ASUS laptops, AYANEO handhelds, Framework computers, Lenovo Legion Go, Microsoft Surface laptops, OneXPlayer handhelds, and Valve Steam Deck handhelds.
+- Enhanced hardware support for Apple Macs with Intel processors, ASUS laptops, ASUS ROG Ally handhelds, AYANEO handhelds, Framework computers, Lenovo Legion Go, Microsoft Surface laptops, OneXPlayer handhelds, and Valve Steam Deck handhelds.
 - Upgrades are fully automated and supported for minor and major versions.
 - All of the features of winesapOS are listed [here](#features).
 
@@ -36,6 +36,7 @@ Want to help support our work? Consider helping out with open feature and bug [G
        * [Additional Hardware Support](#additional-hardware-support)
            * [Apple Intel Macs](#apple-intel-macs)
            * [ASUS Laptops](#asus-laptops)
+           * [ASUS ROG Ally Handhelds](#asus-rog-ally-handhelds)
            * [AYANEO Handhelds](#ayaneo-handhelds)
            * [Framework Computers](#framework-computers)
            * [Lenovo Legion Go](#lenovo-legion-go)
@@ -264,6 +265,20 @@ Notes about Bluetooth and Wi-Fi support if it is not working out-of-the-box:
 | NVMe | Yes | |
 | Sound | Yes | [linux-firmware-asus](https://aur.archlinux.org/packages/linux-firmware-asus) |
 | Fans | Yes | [asusctl](https://gitlab.com/asus-linux/asusctl) |
+| Bluetooth | Yes | |
+| Wi-Fi | Yes | |
+| Fingerprint scanner | No | |
+
+#### ASUS ROG Ally Handhelds
+
+We provide support for both the original ASUS ROG Ally and the newer ASUS ROG Ally X.
+
+| Hardware | Supported | Third-Party Driver(s) |
+| -------- | --------- | --------- |
+| Controller | Yes | kernel-fysnc patches [1](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/0001-add-ally-x-dmi-quirk-for-controller-suspend.patch), [2](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/v14.8-0004-HID-asus-add-ROG-Ally-xpad-settings.patch), [3](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/rog-ally-gyro-fix.patch) |
+| NVMe | Yes | |
+| Sound | Yes | kernel-fsync patches [1](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/rog-ally-audio-fix.patch) and [2](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/0001-ally-x-audio-quirk.patch) |
+| Fans | Yes | |
 | Bluetooth | Yes | |
 | Wi-Fi | Yes | |
 | Fingerprint scanner | No | |
