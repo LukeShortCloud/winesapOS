@@ -692,7 +692,7 @@ if [ $? -eq 0 ]; then
     answer_install_ge="true"
     # GE-Proton.
     mkdir -p /home/${USER}/.local/share/Steam/compatibilitytools.d/
-    PROTON_GE_VERSION="GE-Proton9-7"
+    PROTON_GE_VERSION="GE-Proton9-11"
     curl https://github.com/GloriousEggroll/proton-ge-custom/releases/download/${PROTON_GE_VERSION}/${PROTON_GE_VERSION}.tar.gz --location --output /home/${USER}/.local/share/Steam/compatibilitytools.d/${PROTON_GE_VERSION}.tar.gz
     ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
     tar -x -v -f /home/${USER}/.local/share/Steam/compatibilitytools.d/${PROTON_GE_VERSION}.tar.gz --directory /home/${USER}/.local/share/Steam/compatibilitytools.d/
