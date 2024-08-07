@@ -89,10 +89,9 @@ if [[ "${winesapos_tarball}" == "NONE" ]]; then
     echo "INFO: Downloading the rootfs tarball..."
     wget https://winesapos.lukeshort.cloud/repo/iso/winesapos-${WINESAPOS_VERSION_LATEST}/winesapos-${WINESAPOS_VERSION_LATEST}-minimal-rootfs.tar.zst
     winesapos_tarball="${HOME}/Downloads/winesapos-${WINESAPOS_VERSION_LATEST}-minimal-rootfs.tar.zst"
-else
-    echo "DEBUG: winesapOS tarball path is ${winesapos_tarball}"
 fi
 
+echo "DEBUG: winesapOS tarball path is ${winesapos_tarball}"
 echo "INFO: Extracintg the rootfs tarball..."
 sudo tar --extract --keep-old-files --verbose --file "${winesapos_tarball}" --directory /mnt/
 
