@@ -92,8 +92,8 @@ if [[ "${winesapos_tarball}" == "NONE" ]]; then
 fi
 
 echo "DEBUG: winesapOS tarball path is ${winesapos_tarball}"
-echo "INFO: Extracintg the rootfs tarball..."
-sudo tar --extract --keep-old-files --verbose --file "${winesapos_tarball}" --directory /mnt/
+echo "INFO: Extracintg the rootfs tarball (this will take a long time)..."
+sudo tar --extract --keep-old-files --file "${winesapos_tarball}" --directory /mnt/
 
 # Configure the booloader.
 ## Only get the tmpfs mounts from the original /etc/fstab.
