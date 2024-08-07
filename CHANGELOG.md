@@ -73,6 +73,7 @@
 - Add ability to hide the GRUB boot menu.
 - Add support for sound on the Steam Deck OLED.
 - Add support for ASUS ROG Ally handhelds (including the Ally X).
+- Add 'vi' text editor.
 
 ## 4.0.0 - The Conversion Update
 
