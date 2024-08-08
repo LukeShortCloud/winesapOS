@@ -60,6 +60,7 @@ Want to help support our work? Consider helping out with open feature and bug [G
               * [macOS Dual-Boot Preparation Guide](#macos-dual-boot-preparation-guide)
               * [Windows Dual-Boot Preparation Guide](#windows-dual-boot-preparation-guide)
               * [winesapOS Dual-Boot Install Guide](#winesapos-dual-boot-install-guide)
+      * [First-Time Setup](#first-time-setup)
       * [Upgrades](#upgrades)
           * [Minor Upgrades](#minor-upgrades)
           * [Major Upgrades](#major-upgrades)
@@ -749,6 +750,33 @@ Only Intel Macs are supported.
             $ sudo crudini --ini-options=nospace --set /etc/default/grub "" GRUB_DISABLE_OS_PROBER false
             $ sudo grub-mkconfig -o /boot/grub/grub.cfg
             ```
+
+### First-Time Setup
+
+After logging in for the first time as the `winesap` user, the first-time setup for winesapOS will appear. Users have the option to manually select their choices or go with the recommended defaults below.
+
+| Setup | Recomended Default |
+| --- | --- |
+| Broadcom proprietary Wi-Fi driver | Automatic |
+| Rotate screen | No |
+| Older version of winesapOS | Stop and prompt user |
+| Select your desired mirror region | Automatic (GeoIP) |
+| Graphics driver | Mesa |
+| Swap method | zram |
+| Locale | en_US.UTF-8 UTF-8 |
+| Time zone | Automatic (GeoIP) |
+| Nix package manager | Yes |
+| Recommended producitvity apps | Yes |
+| Recommended gaming apps | Yes |
+| Waydroid | Yes |
+| GE-Proton | Yes |
+| Xbox controller | Yes |
+| Enable ZeroTier | Yes |
+| Change user password | Yes |
+| Change root password | Yes |
+| Enable autologin | Yes |
+| Hide GRUB boot menu | Yes |
+| Upgrade firmware | Yes |
 
 ### Upgrades
 

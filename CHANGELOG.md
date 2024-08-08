@@ -71,6 +71,7 @@
 - Add CoolerControl for managing computer fans.
 - Add a '/usr/lib/os-release-winesapos' file.
 - Add ability to hide the GRUB boot menu.
+- Add recommended defaults to first-time setup.
 
 ## 4.0.0 - The Conversion Update
 

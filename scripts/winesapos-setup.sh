@@ -36,6 +36,8 @@ CMD_FLATPAK_INSTALL=(flatpak install -y --noninteractive)
 
 export WINESAPOS_USER_NAME="${USER}"
 
+os_detected=$(grep -P ^ID= /etc/os-release | cut -d= -f2)
+
 # KDE Plasma 5 uses "qdbus" and 6 uses "qdbus6".
 qdbus_cmd=""
 if [ -e /usr/bin/qdbus ]; then
@@ -46,6 +48,11 @@ else
     echo "No 'qdbus' command found. Progress bars will not work."
 fi
 
+if [ "${os_detected}" != "arch" ] && [ "${os_detected}" != "manjaro" ]; then
+    kdialog --title "winesapOS First-Time Setup" --msgbox "Unsupported operating system. Please use Arch Linux or Manjaro."
+    exit 1
+fi
+
 # Enable Btrfs quotas for Snapper.
 # Snapper does not work during the winesapOS build so this needs to happen during the first-time setup.
 sudo snapper -c root setup-quota
@@ -53,89 +60,128 @@ sudo snapper -c home setup-quota
 sudo btrfs qgroup limit 50G /.snapshots
 sudo btrfs qgroup limit 50G /home/.snapshots
 
-pacman -Q broadcom-wl-dkms
-if [ $? -ne 0 ]; then
+# Only install Broadcom Wi-Fi drivers if (1) there is a Broadcom network adapter and (2) there is no Internet connection detected.
+broadcom_wifi_auto() {
+    lspci | grep -i network | grep -i -q broadcom
+    if [ $? -eq 0 ]; then
+        kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Checking Internet connection..." 2 | cut -d" " -f1)
+        test_internet_connection
+        if [ $? -ne 1 ]; then
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog showCancelButton false
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+            kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for Broadcom proprietary Wi-Fi drivers to be installed..." 3 | cut -d" " -f1)
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
+            # Blacklist drives that are known to cause conflicts with the official Broadcom 'wl' driver.
+            echo -e "\nblacklist b43\nblacklist b43legacy\nblacklist bcm43xx\nblacklist bcma\nblacklist brcm80211\nblacklist brcmsmac\nblacklist brcmfmac\nblacklist brcmutil\nblacklist ndiswrapper\nblacklist ssb\nblacklist tg3\n" | sudo tee /etc/modprobe.d/winesapos.conf
+            broadcom_wl_dkms_pkg=$(ls -1 /var/lib/winesapos/ | grep broadcom-wl-dkms | grep -P "zst$")
+            sudo pacman -U --noconfirm /var/lib/winesapos/${broadcom_wl_dkms_pkg}
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 2
+            echo "wl" | sudo tee -a /etc/modules-load.d/winesapos-wifi.conf
+            sudo mkinitcpio -P
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+            kdialog --title "winesapOS First-Time Setup" --msgbox "Please reboot to load new changes."
+        else
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog showCancelButton false
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+	fi
+    fi
+}
+
+broadcom_wifi_ask() {
     kdialog --title "winesapOS First-Time Setup" --yesno "Do you want to install the Broadcom proprietary Wi-Fi driver? Try this if Wi-Fi is not working. A reboot is required when done."
     if [ $? -eq 0 ]; then
-        kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for Broadcom proprietary Wi-Fi drivers to be installed..." 3 | cut -d" " -f1)
-        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
-        # Blacklist drives that are known to cause conflicts with the official Broadcom 'wl' driver.
-        echo -e "\nblacklist b43\nblacklist b43legacy\nblacklist bcm43xx\nblacklist bcma\nblacklist brcm80211\nblacklist brcmsmac\nblacklist brcmfmac\nblacklist brcmutil\nblacklist ndiswrapper\nblacklist ssb\nblacklist tg3\n" | sudo tee /etc/modprobe.d/winesapos.conf
-        broadcom_wl_dkms_pkg=$(ls -1 /var/lib/winesapos/ | grep broadcom-wl-dkms | grep -P "zst$")
-        sudo pacman -U --noconfirm /var/lib/winesapos/${broadcom_wl_dkms_pkg}
-        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 2
-        echo "wl" | sudo tee -a /etc/modules-load.d/winesapos-wifi.conf
-        sudo mkinitcpio -P
-        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+        broadcom_wifi_auto
     fi
-fi
-
-# "Jupiter" is the code name for the Steam Deck.
-sudo dmidecode -s system-product-name | grep -P ^Jupiter
-if [ $? -eq 0 ]; then
-    echo "Steam Deck hardware detected."
-    # Rotate the desktop temporarily.
-    export embedded_display_port=$(xrandr | grep eDP | grep " connected" | cut -d" " -f1)
-    xrandr --output ${embedded_display_port} --rotate right
-    # Rotate the desktop permanently.
-    echo "xrandr --output ${embedded_display_port} --rotate right" | sudo tee /etc/profile.d/xrandr.sh
-    # Rotate GRUB.
-    sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
-    # Rotate the initramfs output.
-    sudo sed -i s'/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="fbcon:rotate=1 /'g /etc/default/grub
-else
-    echo "No Steam Deck hardware detected."
-    kdialog --title "winesapOS First-Time Setup" --yesno "Do you want to rotate the screen (for devices that have a tablet screen)?"
-    if [ $? -eq 0 ]; then
-        rotation_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select the desired screen orientation..." right "90 degrees right (clockwise)" left "90 degrees left (counter-clockwise)" inverted "180 degrees inverted (upside-down)")
-        export fbcon_rotate=0
-        if [[ "${rotation_selected}" == "right" ]]; then
-            export fbcon_rotate=1
-            sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
-        elif [[ "${rotation_selected}" == "left" ]]; then
-            export fbcon_rotate=3
-            sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
-        elif [[ "${rotation_selected}" == "inverted" ]]; then
-            export fbcon_rotate=2
-        fi
-        # Rotate the TTY output.
-        sudo -E sed -i s"/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"fbcon:rotate=${fbcon_rotate} /"g /etc/default/grub
-        echo ${fbcon_rotate} | sudo tee /sys/class/graphics/fbcon/rotate_all
-        # Rotate the desktop temporarily.
-        export embedded_display_port=$(xrandr | grep eDP | grep " connected" | cut -d" " -f1)
-        if [ ! -z ${embedded_display_port} ]; then
-            xrandr --output ${embedded_display_port} --rotate ${rotation_selected}
-            # Rotate the desktop permanently.
-            echo "xrandr --output ${embedded_display_port} --rotate ${rotation_selected}" | sudo tee /etc/profile.d/xrandr.sh
-        fi
-    fi
-fi
+}
 
 test_internet_connection() {
     # Check with https://ping.archlinux.org/ to see if we have an Internet connection.
     return $(curl -s https://ping.archlinux.org/ | grep "This domain is used for connectivity checking" | wc -l)
 }
 
-while true;
-    do kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Checking Internet connection..." 2 | cut -d" " -f1)
-    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog showCancelButton false
-    test_internet_connection
-    if [ $? -eq 1 ]; then
+loop_test_internet_connection() {
+    while true;
+        do kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Checking Internet connection..." 2 | cut -d" " -f1)
+        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog showCancelButton false
+        test_internet_connection
+        if [ $? -eq 1 ]; then
+            ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+            # Break out of the "while" loop if we have an Internet connection.
+            break 2
+        fi
         ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
-        # Break out of the "while" loop if we have an Internet connection.
-        break 2
+        kdialog --title "winesapOS First-Time Setup" \
+                --yesno "A working Internet connection for setting up graphics drivers is not detected. \
+                \nPlease connect to the Internet and try again, or select Cancel to quit Setup." \
+                --yes-label "Retry" \
+                --no-label "Cancel"
+        if [ $? -eq 1 ]; then
+            # Exit the script if the user selects "Cancel".
+            exit 1
+        fi
+    done
+}
+
+screen_rotate_ask() {
+    # "Jupiter" is the code name for the Steam Deck.
+    sudo dmidecode -s system-product-name | grep -P ^Jupiter
+    if [ $? -eq 0 ]; then
+        echo "Steam Deck hardware detected."
+        # Rotate the desktop temporarily.
+        export embedded_display_port=$(xrandr | grep eDP | grep " connected" | cut -d" " -f1)
+        xrandr --output ${embedded_display_port} --rotate right
+        # Rotate the desktop permanently.
+        echo "xrandr --output ${embedded_display_port} --rotate right" | sudo tee /etc/profile.d/xrandr.sh
+        # Rotate GRUB.
+        sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
+        # Rotate the initramfs output.
+        sudo sed -i s'/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="fbcon:rotate=1 /'g /etc/default/grub
+    else
+        echo "No Steam Deck hardware detected."
+        kdialog --title "winesapOS First-Time Setup" --yesno "Do you want to rotate the screen (for devices that have a tablet screen)?"
+        if [ $? -eq 0 ]; then
+            rotation_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select the desired screen orientation..." right "90 degrees right (clockwise)" left "90 degrees left (counter-clockwise)" inverted "180 degrees inverted (upside-down)")
+            export fbcon_rotate=0
+            if [[ "${rotation_selected}" == "right" ]]; then
+                export fbcon_rotate=1
+                sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
+            elif [[ "${rotation_selected}" == "left" ]]; then
+                export fbcon_rotate=3
+                sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
+            elif [[ "${rotation_selected}" == "inverted" ]]; then
+                export fbcon_rotate=2
+            fi
+            # Rotate the TTY output.
+            sudo -E sed -i s"/GRUB_CMDLINE_LINUX=\"/GRUB_CMDLINE_LINUX=\"fbcon:rotate=${fbcon_rotate} /"g /etc/default/grub
+            echo ${fbcon_rotate} | sudo tee /sys/class/graphics/fbcon/rotate_all
+            # Rotate the desktop temporarily.
+            export embedded_display_port=$(xrandr | grep eDP | grep " connected" | cut -d" " -f1)
+            if [ ! -z ${embedded_display_port} ]; then
+                xrandr --output ${embedded_display_port} --rotate ${rotation_selected}
+                # Rotate the desktop permanently.
+                echo "xrandr --output ${embedded_display_port} --rotate ${rotation_selected}" | sudo tee /etc/profile.d/xrandr.sh
+            fi
+        fi
     fi
-    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
-    kdialog --title "winesapOS First-Time Setup" \
-            --yesno "A working Internet connection for setting up graphics drivers is not detected. \
-            \nPlease connect to the Internet and try again, or select Cancel to quit Setup." \
-            --yes-label "Retry" \
-            --no-label "Cancel"
-    if [ $? -eq 1 ]; then
-        # Exit the script if the user selects "Cancel".
-        exit 1
+}
+
+# Only automatically handle the case for the Steam Deck.
+screen_rotate_auto() {
+    # "Jupiter" is the code name for the Steam Deck.
+    sudo dmidecode -s system-product-name | grep -P ^Jupiter
+    if [ $? -eq 0 ]; then
+        echo "Steam Deck hardware detected."
+        # Rotate the desktop temporarily.
+        export embedded_display_port=$(xrandr | grep eDP | grep " connected" | cut -d" " -f1)
+        xrandr --output ${embedded_display_port} --rotate right
+        # Rotate the desktop permanently.
+        echo "xrandr --output ${embedded_display_port} --rotate right" | sudo tee /etc/profile.d/xrandr.sh
+        # Rotate GRUB.
+        sudo sed -i s'/GRUB_GFXMODE=.*/GRUB_GFXMODE=720x1280,auto/'g /etc/default/grub
+        # Rotate the initramfs output.
+        sudo sed -i s'/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="fbcon:rotate=1 /'g /etc/default/grub
     fi
-done
+}
 
 # Download the Steam bootstrap files in the background.
 # This allows the Steam Gamescope Session to work on the next reboot.
@@ -145,7 +191,221 @@ steam_bootstrap() {
     fi
 }
 
-steam_bootstrap
+repo_mirrors_region_ask() {
+    # Dialog to ask the user what mirror region they want to use
+    if [ "${os_detected}" = "arch" ]; then
+        # Fetch the list of regions from the Arch Linux mirror status JSON API
+        mirror_regions=("${(@f)$(curl -s https://archlinux.org/mirrors/status/json/ | jq -r '.urls[].country' | sort | uniq | sed '1d')}")
+    fi
+
+    if [ "${os_detected}" = "manjaro" ]; then
+        # Fetch the list of regions from the Manjaro mirror status JSON API
+        mirror_regions=("${(@f)$(curl -s https://repo.manjaro.org/status.json | jq -r '.[].country' | sort | uniq)}")
+    fi
+
+    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the setup to update the Pacman cache..." 2 | cut -d" " -f1)
+    chosen_region=$(kdialog --title "winesapOS First-Time Setup" \
+                            --combobox "Select your desired mirror region, \nor press Cancel to use default settings:" \
+                            "${mirror_regions[@]}")
+
+    if [ "${os_detected}" = "arch" ]; then
+        # Check if the user selected a mirror region.
+        if [ -n "${chosen_region}" ]; then
+            # this seems like a better idea than writing global config we can't reliably remove a line
+            sudo reflector --verbose --latest 10 --sort age --save /etc/pacman.d/mirrorlist --country "${chosen_region}"
+            # ideally we should be sorting by `rate` for consistency but it may get too slow
+        else
+            # Fallback to the Arch Linux and Rackspace global mirrors.
+            echo 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
+            echo 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' | sudo tee -a /etc/pacman.d/mirrorlist
+        fi
+    elif [[ "${os_detected}" == "manjaro" ]]; then
+        if [ -n "${chosen_region}" ]; then
+            sudo pacman-mirrors -c "${chosen_region}"
+        else
+            sudo pacman-mirrors -f 5
+        fi
+    fi
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
+    sudo pacman -S -y
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+}
+
+repo_mirrors_region_auto() {
+    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the setup to update the Pacman cache..." 2 | cut -d" " -f1)
+    if [ "${os_detected}" = "arch" ]; then
+        echo 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
+        echo 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' | sudo tee -a /etc/pacman.d/mirrorlist
+    elif [[ "${os_detected}" == "manjaro" ]]; then
+        sudo pacman-mirrors --geoip -f 5
+    fi
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
+    sudo pacman -S -y
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+}
+
+graphics_drivers_ask() {
+    graphics_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select your desired graphics driver..." amd AMD intel Intel nvidia-open "NVIDIA Open (for DLSS, Turing and newer)" nvidia-mesa "NVIDIA Mesa (for portability, Kepler and newer)" virtualbox VirtualBox vmware VMware)
+    # Keep track of the selected graphics drivers for upgrade purposes.
+    echo ${graphics_selected} | sudo tee /var/winesapos/graphics
+    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the graphics driver to be installed..." 2 | cut -d" " -f1)
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
+
+    if [[ "${graphics_selected}" == "amd" ]]; then
+        true
+    elif [[ "${graphics_selected}" == "intel" ]]; then
+        sudo pacman -S --noconfirm \
+          extra/intel-media-driver \
+          extra/intel-compute-runtime
+    elif [[ "${graphics_selected}" == "nvidia-open" ]]; then
+        sudo pacman -S --noconfirm \
+          extra/nvidia-open-dkms \
+          extra/nvidia-utils \
+          multilib/lib32-nvidia-utils \
+          extra/opencl-nvidia \
+          multilib/lib32-opencl-nvidia
+
+        # Enable Wayland support.
+        sudo sed -i s'/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="nvidia_drm.modeset=1 nvidia_drm.fbdev=1 /'g /etc/default/grub
+
+        # Block the loading of conflicting open source NVIDIA drivers.
+        sudo touch /etc/modprobe.d/winesapos-nvidia.conf
+        echo "blacklist nova
+    blacklist nouveau
+    blacklist nvidiafb
+    blacklist nv
+    blacklist rivafb
+    blacklist rivatv
+    blacklist uvcvideo" | sudo tee /etc/modprobe.d/winesapos-nvidia.conf
+
+        # Enable NVIDIA services to prevent crashes.
+        # https://github.com/LukeShortCloud/winesapOS/issues/837
+        sudo systemctl enable nvidia-hibernate nvidia-persistenced nvidia-powerd nvidia-resume nvidia-suspend
+    elif [[ "${graphics_selected}" == "nvidia-mesa" ]]; then
+        # Enable GSP firmware support for older graphics cards.
+        sudo sed -i s'/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="nouveau.config=NvGspRm=1 /'g /etc/default/grub
+
+        # Enable experimental support for old NVIDIA graphics cards starting with Kepler.
+        echo "NVK_I_WANT_A_BROKEN_VULKAN_DRIVER=1" | sudo tee -a /etc/environment
+
+        # Block the loading of conflicting NVIDIA Open Kernel Module drivers.
+        sudo touch /etc/modprobe.d/winesapos-nvidia.conf
+        echo "blacklist nvidia
+    blacklist nvidiafb
+    blacklist nvidia_drm
+    blacklist i2c_nvidia_gpu" | sudo tee /etc/modprobe.d/winesapos-nvidia.conf
+    elif [[ "${graphics_selected}" == "virtualbox" ]]; then
+        sudo pacman -S --noconfirm virtualbox-guest-utils
+        sudo systemctl enable --now vboxservice
+        sudo usermod -a -G vboxsf winesap
+    elif [[ "${graphics_selected}" == "vmware" ]]; then
+        sudo pacman -S --noconfirm \
+          open-vm-tools \
+          xf86-video-vmware \
+          xf86-input-vmmouse \
+          gtkmm3
+        sudo systemctl enable --now \
+          vmtoolsd \
+          vmware-vmblock-fuse
+    fi
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+}
+
+graphics_drivers_auto() {
+    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the graphics driver to be installed..." 1 | cut -d" " -f1)
+    echo mesa | sudo tee /var/winesapos/graphics
+
+    # Enable GSP firmware support for older NVIDIA graphics cards.
+    sudo sed -i s'/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="nouveau.config=NvGspRm=1 /'g /etc/default/grub
+    # Enable experimental support for old graphics cards starting with Kepler.
+    echo "NVK_I_WANT_A_BROKEN_VULKAN_DRIVER=1" | sudo tee -a /etc/environment
+
+    # Here are all of the possible virtualization technologies that systemd can detect:
+    # https://www.freedesktop.org/software/systemd/man/latest/systemd-detect-virt.html
+    virtualization_detected="$(systemd-detect-virt)"
+    # Oracle VM VirtualBox.
+    if [[ "${virtualization_detected}" == "oracle" ]]; then
+        sudo pacman -S --noconfirm virtualbox-guest-utils
+        sudo systemctl enable --now vboxservice
+        sudo usermod -a -G vboxsf winesap
+    elif [[ "${virtualization_detected}" == "vmware" ]]; then
+        sudo pacman -S --noconfirm \
+          open-vm-tools \
+          xf86-video-vmware \
+          xf86-input-vmmouse \
+          gtkmm3
+        sudo systemctl enable --now \
+          vmtoolsd \
+          vmware-vmblock-fuse
+    fi
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+}
+
+swap_method_ask() {
+    swap_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select your method for swap..." zram "zram (fast to create, uses CPU)" swapfile "swapfile (slow to create, uses I/O)" none "none")
+    if [[ "${swap_selected}" == "zram" ]]; then
+        kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for zram to be enabled..." 1 | cut -d" " -f1)
+        # Configure optimized zram settings used by Pop!_OS.
+        echo "vm.swappiness = 180
+    vm.watermark_boost_factor = 0
+    vm.watermark_scale_factor = 125
+    vm.page-cluster = 0" | sudo tee /etc/sysctl.d/99-vm-zram-parameters.conf
+        echo "[zram0]
+    zram-size = ram / 2
+    compression-algorithm = zstd" | sudo tee /etc/systemd/zram-generator.conf
+        sudo systemctl daemon-reload && sudo systemctl enable systemd-zram-setup@zram0.service
+        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+    elif [[ "${swap_selected}" == "swapfile" ]]; then
+        kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the swapfile to be enabled..." 1 | cut -d" " -f1)
+        swap_size_selected=$(kdialog --title "winesapOS First-Time Setup" --inputbox "Swap size (GB):" "8")
+        echo "vm.swappiness=1" | sudo tee -a /etc/sysctl.d/00-winesapos.conf
+        sudo touch /swap/swapfile
+        # Avoid Btrfs copy-on-write.
+        sudo chattr +C /swap/swapfile
+        # Now fill in the swap file.
+        sudo dd if=/dev/zero of=/swap/swapfile bs=1M count="${swap_size_selected}000"
+        # A swap file requires strict permissions to work.
+        sudo chmod 0600 /swap/swapfile
+        sudo mkswap /swap/swapfile
+        sudo swaplabel --label winesapos-swap /swap/swapfile
+        sudo swapon /swap/swapfile
+        echo "/swap/swapfile    none    swap    defaults    0 0" | sudo tee -a /etc/fstab
+        ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+    fi
+}
+
+swap_method_auto() {
+    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for zram to be enabled..." 1 | cut -d" " -f1)
+    # Configure optimized zram settings used by Pop!_OS.
+    echo "vm.swappiness = 180
+    atermark_boost_factor = 0
+    atermark_scale_factor = 125
+    age-cluster = 0" | sudo tee /etc/sysctl.d/99-vm-zram-parameters.conf
+    echo "[zram0]
+    -size = ram / 2
+    ression-algorithm = zstd" | sudo tee /etc/systemd/zram-generator.conf
+    sudo systemctl daemon-reload && sudo systemctl enable systemd-zram-setup@zram0.service
+    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
+}
+
+kdialog --title "winesapOS First-Time Setup" --yesno "Do you want to use the recommended defaults for the first-time setup?"
+if [ $? -eq 0 ]; then
+    broadcom_wifi_auto
+    loop_test_internet_connection
+    steam_bootstrap
+    screen_rotate_auto
+    repo_mirros_region_auto
+    graphics_drivers_auto
+    swap_method_auto
+else
+    broadcom_wifi_ask
+    loop_test_internet_connection
+    steam_bootstrap
+    screen_rotate_ask
+    repo_mirros_region_ask
+    graphics_drivers_ask
+    swap_method_ask
+fi
 
 winesapos_ver_latest="$(curl https://raw.githubusercontent.com/LukeShortCloud/winesapOS/stable/files/os-release-winesapos | grep VERSION_ID | cut -d = -f 2)"
 winesapos_ver_current="$(grep VERSION_ID /usr/lib/os-release-winesapos | cut -d = -f 2)"
@@ -166,13 +426,6 @@ if [[ "${WINESAPOS_IMAGE_TYPE}" == "secure" ]]; then
     echo "Allow passwordless 'sudo' for AUR packages installed via 'yay' to be done automatically complete."
 fi
 
-os_detected=$(grep -P ^ID= /etc/os-release | cut -d= -f2)
-
-if [ "${os_detected}" != "arch" ] && [ "${os_detected}" != "manjaro" ]; then
-    echo Unsupported operating system. Please use Arch Linux or Manjaro.
-    exit 1
-fi
-
 echo "Turning on the Mac fan service if the hardware is Apple..."
 sudo dmidecode -s system-product-name | grep -P ^Mac
 if [ $? -eq 0 ]; then
@@ -187,50 +440,6 @@ else
     echo "No Mac hardware detected."
 fi
 echo "Turning on the Mac fan service if the hardware is Apple complete."
-
-# Dialog to ask the user what mirror region they want to use
-if [ "${os_detected}" = "arch" ]; then
-    # Fetch the list of regions from the Arch Linux mirror status JSON API
-    mirror_regions=("${(@f)$(curl -s https://archlinux.org/mirrors/status/json/ | jq -r '.urls[].country' | sort | uniq | sed '1d')}")
-fi 
-
-if [ "${os_detected}" = "manjaro" ]; then
-    # Fetch the list of regions from the Manjaro mirror status JSON API
-    mirror_regions=("${(@f)$(curl -s https://repo.manjaro.org/status.json | jq -r '.[].country' | sort | uniq)}")
-fi
-
-kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the setup to update the Pacman cache..." 3 | cut -d" " -f1)
-chosen_region=$(kdialog --title "winesapOS First-Time Setup" \
-                        --combobox "Select your desired mirror region, \nor press Cancel to use default settings:" \
-                        "${mirror_regions[@]}")
-
-${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
-
-if [ "${os_detected}" = "arch" ]; then
-    # Check if the user selected a mirror region.
-    if [ -n "${chosen_region}" ]; then 
-        # this seems like a better idea than writing global config we can't reliably remove a line
-        sudo reflector --verbose --latest 10 --sort age --save /etc/pacman.d/mirrorlist --country "${chosen_region}"
-        # ideally we should be sorting by `rate` for consistency but it may get too slow
-    else
-        # Fallback to the Arch Linux and Rackspace global mirrors.
-        echo 'Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch' | sudo tee /etc/pacman.d/mirrorlist
-        echo 'Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch' | sudo tee -a /etc/pacman.d/mirrorlist
-    fi
-fi
-
-if [[ "${os_detected}" == "manjaro" ]]; then
-    if [ -n "${chosen_region}" ]; then
-        sudo pacman-mirrors -c "${chosen_region}"
-    else
-        sudo pacman-mirrors -f 5
-    fi
-fi
-
-${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 2
-
-sudo pacman -S -y
-${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
 
 system_manufacturer=$(sudo dmidecode -s system-manufacturer)
 if [[ "${system_manufacturer}" == "Framework" ]]; then
@@ -318,102 +527,6 @@ if sudo dmidecode -s system-manufacturer | grep -P "^ASUS"; then
     ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
 else
     echo "ASUS computer not detected."
-fi
-
-graphics_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select your desired graphics driver..." amd AMD intel Intel nvidia-open "NVIDIA Open (for DLSS, Turing and newer)" nvidia-mesa "NVIDIA Mesa (for portability, Kepler and newer)" virtualbox VirtualBox vmware VMware)
-# Keep track of the selected graphics drivers for upgrade purposes.
-echo ${graphics_selected} | sudo tee /var/winesapos/graphics
-kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the graphics driver to be installed..." 2 | cut -d" " -f1)
-${qdbus_cmd} ${kdialog_dbus} /ProgressDialog Set org.kde.kdialog.ProgressDialog value 1
-
-if [[ "${graphics_selected}" == "amd" ]]; then
-    true
-elif [[ "${graphics_selected}" == "intel" ]]; then
-    sudo pacman -S --noconfirm \
-      extra/intel-media-driver \
-      extra/intel-compute-runtime
-elif [[ "${graphics_selected}" == "nvidia-open" ]]; then
-    sudo pacman -S --noconfirm \
-      extra/nvidia-open-dkms \
-      extra/nvidia-utils \
-      multilib/lib32-nvidia-utils \
-      extra/opencl-nvidia \
-      multilib/lib32-opencl-nvidia
-
-    # Enable Wayland support.
-    sudo sed -i s'/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="nvidia_drm.modeset=1 nvidia_drm.fbdev=1 /'g /etc/default/grub
-
-    # Block the loading of conflicting open source NVIDIA drivers.
-    sudo touch /etc/modprobe.d/winesapos-nvidia.conf
-    echo "blacklist nova
-blacklist nouveau
-blacklist nvidiafb
-blacklist nv
-blacklist rivafb
-blacklist rivatv
-blacklist uvcvideo" | sudo tee /etc/modprobe.d/winesapos-nvidia.conf
-
-    # Enable NVIDIA services to prevent crashes.
-    # https://github.com/LukeShortCloud/winesapOS/issues/837
-    sudo systemctl enable nvidia-hibernate nvidia-persistenced nvidia-powerd nvidia-resume nvidia-suspend
-elif [[ "${graphics_selected}" == "nvidia-mesa" ]]; then
-    # Enable GSP firmware support for older graphics cards.
-    sudo sed -i s'/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="nouveau.config=NvGspRm=1 /'g /etc/default/grub
-
-    # Enable experimental support for old graphics cards starting with Kepler.
-    echo "NVK_I_WANT_A_BROKEN_VULKAN_DRIVER=1" | sudo tee -a /etc/environment
-
-    # Block the loading of conflicting NVIDIA Open Kernel Module drivers.
-    sudo touch /etc/modprobe.d/winesapos-nvidia.conf
-    echo "blacklist nvidia
-blacklist nvidiafb
-blacklist nvidia_drm
-blacklist i2c_nvidia_gpu" | sudo tee /etc/modprobe.d/winesapos-nvidia.conf
-elif [[ "${graphics_selected}" == "virtualbox" ]]; then
-    sudo pacman -S --noconfirm virtualbox-guest-utils
-    sudo systemctl enable --now vboxservice
-    sudo usermod -a -G vboxsf winesap
-elif [[ "${graphics_selected}" == "vmware" ]]; then
-    sudo pacman -S --noconfirm \
-      open-vm-tools \
-      xf86-video-vmware \
-      xf86-input-vmmouse \
-      gtkmm3
-    sudo systemctl enable --now \
-      vmtoolsd \
-      vmware-vmblock-fuse
-fi
-${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
-
-swap_selected=$(kdialog --title "winesapOS First-Time Setup" --menu "Select your method for swap..." zram "zram (fast to create, uses CPU)" swapfile "swapfile (slow to create, uses I/O)" none "none")
-if [[ "${swap_selected}" == "zram" ]]; then
-    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for zram to be enabled..." 1 | cut -d" " -f1)
-    # Configure optimized zram settings used by Pop!_OS.
-    echo "vm.swappiness = 180
-vm.watermark_boost_factor = 0
-vm.watermark_scale_factor = 125
-vm.page-cluster = 0" | sudo tee /etc/sysctl.d/99-vm-zram-parameters.conf
-    echo "[zram0]
-zram-size = ram / 2
-compression-algorithm = zstd" | sudo tee /etc/systemd/zram-generator.conf
-    sudo systemctl daemon-reload && sudo systemctl enable systemd-zram-setup@zram0.service
-    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
-elif [[ "${swap_selected}" == "swapfile" ]]; then
-    kdialog_dbus=$(kdialog --title "winesapOS First-Time Setup" --progressbar "Please wait for the swapfile to be enabled..." 1 | cut -d" " -f1)
-    swap_size_selected=$(kdialog --title "winesapOS First-Time Setup" --inputbox "Swap size (GB):" "8")
-    echo "vm.swappiness=1" | sudo tee -a /etc/sysctl.d/00-winesapos.conf
-    sudo touch /swap/swapfile
-    # Avoid Btrfs copy-on-write.
-    sudo chattr +C /swap/swapfile
-    # Now fill in the swap file.
-    sudo dd if=/dev/zero of=/swap/swapfile bs=1M count="${swap_size_selected}000"
-    # A swap file requires strict permissions to work.
-    sudo chmod 0600 /swap/swapfile
-    sudo mkswap /swap/swapfile
-    sudo swaplabel --label winesapos-swap /swap/swapfile
-    sudo swapon /swap/swapfile
-    echo "/swap/swapfile    none    swap    defaults    0 0" | sudo tee -a /etc/fstab
-    ${qdbus_cmd} ${kdialog_dbus} /ProgressDialog org.kde.kdialog.ProgressDialog.close
 fi
 
 kdialog --title "winesapOS First-Time Setup" --yesno "Do you want to change the current locale (en_US.UTF-8 UTF-8)?"
