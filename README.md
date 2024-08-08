@@ -237,6 +237,8 @@ These are reasons why macOS is inferior compared to Linux when it comes to gamin
 
 **All Intel Macs are supported.** Linux works on most Macs out-of-the-box these days. Drivers are pre-installed for newer hardware where native Linux support is missing.
 
+For installation onto an internal drive, winesapOS must be installed as a [dual-boot](#dual-boot) alongside macOS. It will not work as the only installed operating system on an Intel Mac.
+
 | Hardware | Supported | Third-Party Driver(s) |
 | -------- | --------- | --------- |
 | Keyboard | Yes | [linux-t2 patches](https://pagure.io/kernel-fsync/blob/main/f/SOURCES/t2linux.patch) |
@@ -663,9 +665,9 @@ The image can now be used by Ventoy.
 
 #### Dual-Boot
 
-It is recommended to follow the [setup](#setup) guide to install winesapOS onto its own internal drive. Then use the motherboard BIOS to change the boot device.
+It is recommended to follow the [setup](#setup) guide to install winesapOS onto its own internal drive if also using Linux or Windows. Then use the motherboard BIOS to change the boot device. For macOS, the only way to install it to the internal drive is via dual-boot.
 
-However, it is possible to install winesapOS onto the same drive as macOS or Windows. That is what this guide will cover in more detail.
+However, it is possible to install winesapOS onto the same drive as Linux or Windows. That is what this guide will cover in more detail.
 
 Only UEFI is supported for dual-boot installations of winesapOS. For legacy BIOS boot, [setup](#setup) a normal portable [release](https://github.com/LukeShortCloud/winesapOS/releases) image such as the minimal, performance, or secure. Those all support both legacy BIOS boot and UEFI.
 
