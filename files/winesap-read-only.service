@@ -1,0 +1,11 @@
+[Unit]
+Description= winesapOS service responsible for making winesapOS read-only
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/winesap/.winesapos/winesapos-read-only.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

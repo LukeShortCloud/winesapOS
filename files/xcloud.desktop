@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Xbox Cloud Gaming
+Comment=Run Xbox xCloud
+Exec=/usr/bin/flatpak run com.google.Chrome --app=https://www.xbox.com/en-us/play
+Icon=google-chrome
+Terminal=false
+Type=Application
+Categories=Game;

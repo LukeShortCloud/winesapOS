@@ -78,6 +78,7 @@ makepkg_fn inputplumber-bin install
 makepkg_fn powerstation-bin install
 makepkg_fn opengamepadui-bin install
 makepkg_fn opengamepadui-session-git
+pacman_install_chroot docker podman 
 
 # 'inputmodule-udev' is a dependency for 'inputmodule-control'.
 makepkg_fn inputmodule-udev install

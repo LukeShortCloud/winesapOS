@@ -363,7 +363,8 @@ pacman_install_chroot inetutils
 # Install fingerprint scanning support.
 pacman_install_chroot fprintd
 echo "Installing ${WINESAPOS_DISTRO} complete."
-
+# GNOME Boxes and Virtual Machine Manager support.
+pacman_install_chroot spice-vdagent
 echo "Setting up Pacman parallel package downloads in chroot..."
 # Increase from the default 1 package download at a time to 5.
 sed -i s'/\#ParallelDownloads.*/ParallelDownloads=5/'g ${WINESAPOS_INSTALL_DIR}/etc/pacman.conf
@@ -550,7 +551,7 @@ echo "Installing sound drivers complete."
 
 if [[ "${WINESAPOS_INSTALL_PRODUCTIVITY_TOOLS}" == "true" ]]; then
     echo "Installing additional packages..."
-    pacman_install_chroot ffmpeg gparted jre8-openjdk libdvdcss lm_sensors man-db mlocate nano ncdu nmap openssh python python-pip python-setuptools rsync smartmontools spectacle sudo terminator tmate tmux wget veracrypt vim zstd
+    pacman_install_chroot bind ffmpeg gparted jre8-openjdk libdvdcss lm_sensors man-db mlocate nano ncdu nmap openssh python python-pip python-setuptools rsync smartmontools spectacle sudo terminator tmate tmux wget veracrypt vi vim zstd
     # ClamAV anti-virus.
     pacman_install_chroot clamav clamtk
     ## Download an offline database for ClamAV.
@@ -570,7 +571,7 @@ if [[ "${WINESAPOS_INSTALL_PRODUCTIVITY_TOOLS}" == "true" ]]; then
     echo "Installing additional packages from the AUR complete."
 
 else
-    pacman_install_chroot lm_sensors man-db nano openssh rsync sudo terminator tmate tmux wget vim zstd
+    pacman_install_chroot bind lm_sensors man-db nano openssh rsync sudo terminator tmate tmux wget vi vim zstd
 fi
 
 echo "Installing Firefox ESR..."
@@ -732,9 +733,9 @@ echo "Increasing open file limits complete."
 
 echo "Setting up the desktop environment..."
 # Install Xorg.
-pacman_install_chroot xorg-server xorg-xinit xorg-xinput xterm xf86-input-libinput
+pacman_install_chroot xorg-server xorg-xinit xorg-xinput xterm xf86-input-libinput xcb-util-keysyms xcb-util-cursor xcb-util-wm xcb-util-xrm
 # Install xwayland-run to help run Steam during the first-time setup.
-yay_install_chroot xwayland-run-git weston
+yay_install_chroot xwayland-run-git weston libwayland-server 
 # Install the Simple Desktop Display Manager (SDDM).
 pacman_install_chroot sddm
 # Hide UIDs of Nix build users.
@@ -787,6 +788,16 @@ elif [[ "${WINESAPOS_DE}" == "gnome" ]]; then
         pacman_install_chroot manjaro-gnome-settings manjaro-settings-manager
     fi
     echo "Installing the GNOME desktop environment complete."
+elif [[ "${WINESAPOS_DE}" == "i3" ]]
+     echo "Installing i3"
+     pacman_install_chroot i3-wm i3lock i3blocks i3status 
+     echo "Installing i3 ... Completed successfully"
+    
+elif [[ "${WINESAPOS_DE}" == "sway" ]]; then
+    echo "Installing the Sway tiling manager..."
+    pacman_install_chroot swaylock swayidle swaybg sway 
+    echo "Installing the Sway tiling manager. complete"
+
 elif [[ "${WINESAPOS_DE}" == "plasma" ]]; then
     echo "Installing the KDE Plasma desktop environment..."
     pacman_install_chroot plasma-meta plasma-nm
@@ -795,6 +806,11 @@ elif [[ "${WINESAPOS_DE}" == "plasma" ]]; then
     chroot ${WINESAPOS_INSTALL_DIR} crudini --ini-options=nospace --set /etc/xdg/konsolerc "Desktop Entry" DefaultProfile Vapor.profile
     # Image gallery and text editor.
     pacman_install_chroot gwenview kate
+elif [[ "${WINESAPOS_DE}" == "plasma-mobile" ]]; then
+     echo "Installing the KDE Plasma Mobile DE..."
+     yay_install_chroot plasma-mobile plasma-nano plasma-settings plasma-dialer plasma-mobile-sounds
+     pacman_install_chroot maliit-keyboard bluez-qt kirigami-addons kpipewire kwin modemmanager-qt plasma-nm plasma-pa plasma-workspace-wallpapers
+     echo "Installing the KDE Plasma Mobile DE... Completed"
 
     if [[ "${WINESAPOS_DISTRO_DETECTED}" == "manjaro" ]]; then
         pacman_install_chroot manjaro-kde-settings manjaro-settings-manager-knotifier
