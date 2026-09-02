@@ -1,5 +1,15 @@
 # Upgrade Notes
 
+## 4.6.0 to 4.7.0
+
+**Action Required:**
+
+- None.
+
+**No Action Required:**
+
+- Remove abandoned 'lib32-audit' package.
+
 ## 4.5.0 to 4.6.0
 
 **Action Required:**
