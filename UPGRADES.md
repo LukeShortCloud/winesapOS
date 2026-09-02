@@ -9,6 +9,7 @@
 **No Action Required:**
 
 - Remove abandoned 'lib32-audit' package.
+- Remove abandoned 'lib32-gettext' package.
 
 ## 4.5.0 to 4.6.0
 
@@ -28,7 +29,7 @@
 - Remove AppImageLauncher due to broken build and confusing user experience.
 - Remove abandoned 'lib32-libcap' and 'lib32-libpcap' packages.
 - Remove abandoned 'lib32-libbpf' package.
-- Remove abandoned 'ib32-v4l-utils' package.
+- Remove abandoned 'lib32-v4l-utils' package.
 
 ## 4.4.0 to 4.5.0
 
